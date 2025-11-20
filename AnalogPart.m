@@ -64,9 +64,7 @@ end
 
 Band_Width = f(index);
 
-disp(Band_Width);
-
-
+disp(['Band Width = ' num2str(Band_Width)]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% SSB Modulation (S & s)
 fc = 50;
@@ -74,18 +72,20 @@ Ac = 10;
 c = Ac * cos(2*pi*fc*t);
 s = m.* c;
 S = fftshift(fft(s))/N; %%%%% S is after DSB-SC then it goes to BPF to take wanted side
-%%%% 1st method by BPF %%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1st method by BPF
 BPF = zeros(size(f));
 BPF(f>(fc-Band_Width) & f<(fc))=1;%% +ve frequency
 BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
 S_LSB1 = BPF.*S;
 
-%%%%2nd method by LBF %%%%%%%%%%%%%%%
-LBF = abs(f) <fc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 2nd method by LBF 
+LBF = abs(f) <fc; %%%%LBF
 S_LSB2 = LBF.* S;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure (3);
-plot(f,abs(S_LSB2),"Color","b");
+plot(f,abs(S_LSB2),"Color","b" , "LineWidth",0.6);
 hold on ;
 
 xlabel('Frequency (Hz)');
@@ -99,7 +99,53 @@ grid on;
 xlabel('Frequency (Hz)');
 ylabel=('|S(F)|_LBS1');
 title('Modulated Message 1St Method');
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% S1_Band_Width (BW for S_LSB1)
+Max_Value = max(abs(S_LSB1));
+index = find(f == 0);
+b = 0;
+
+for C_index = index : length(f)
+
+
+    if (abs(S_LSB1(C_index)) == Max_Value)
+        b = 1;
+    end
+
+    if(S_LSB1(C_index) < (0.01 *  Max_Value) && b == 1)
+    index = C_index;
+    break
+    end
+end
+
+
+S1_Band_Width = f(index);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  S2_Band_Width (BW for S_LSB2)
+Max_Value = max(abs(S_LSB2));
+index = find(f == 0);
+b = 0;
+
+for C_index = index : length(f)
+
+
+    if (abs(S_LSB2(C_index)) == Max_Value)
+        b = 1;
+    end
+
+    if(S_LSB2(C_index) < (0.01 *  Max_Value) && b == 1)
+    index = C_index;
+    break
+    end
+end
+
+
+S2_Band_Width = f(index);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% print BW of 2 mehtods
+disp(['1st method BW_SSB = ' num2str(S1_Band_Width)]);
+disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% End point 5A 
+
 
 
 
