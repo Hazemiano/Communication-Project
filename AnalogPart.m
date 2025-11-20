@@ -145,7 +145,22 @@ disp(['1st method BW_SSB = ' num2str(S1_Band_Width)]);
 disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% End point 5A 
+r=ifft(fftshift(S_LSB1))*N;
+v=r .* c;
+V=fftshift(fft(v))/N;
+H=abs(f)<18;
 
+mo=real(ifft(fftshift(H.* V))*N);
+figure(4)
+plot(t,mo);
+hold on;
+plot(t,m);
+legend('demodulated massage signal','original massage')
+xlabel('Time (s)');
+%ylabel('m(t)');
+title(' original massage & demodulated massage signal')
+axis tight;
+grid on;
 
 
 
