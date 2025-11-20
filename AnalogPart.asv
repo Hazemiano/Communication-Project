@@ -4,7 +4,6 @@ clear;
 ts=1/600;  %Time step
 fm=18;       %Massage Frequency
 T=10/fm;      %Total simulation time
-fs=0.1/ts;     % Sampling frequency
 fs=1/ts;     % Sampling frequency
 N=ceil(T/ts); %Length of Vector 
 t=0:ts:(N-1)*ts;
@@ -35,7 +34,6 @@ M_an = (9/2)*(sinc(9*(f-18)) + sinc(9*(f+18)));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %plot
 figure (2);
-plot(f,abs(M_nu)/(max(M_nu)),"Color","b","LineWidth",1);
 plot(f,abs(M_nu),"Color","b","LineWidth",1);
 hold on ;
 plot(f,abs(M_an)/(max(M_an)),"Color","r","LineStyle","--","LineWidth",1);
@@ -45,4 +43,31 @@ title(' Analytical and Numerical Fourier Transform');
 legend('Numerical', 'Analytical');
 ylim([-0.1 , 1.1]);
 grid on;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%get Band_Width
+Max_Value = max(abs(M_nu));
+index = find(f == 0);
+b = 0;
+
+for C_index = index : length(f)
+
+
+    if (abs(M_nu(C_index)) == Max_Value)
+        b = 1;
+    end
+
+    if(M_nu(C_index) < (0.01 *  Max_Value) && b == 1)
+    M_nu(C_index) = 0 ;
+    index = C_index;
+    break
+    end
+end
+
+
+Band_Width = f(index);
+
+disp(Band_Width);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
