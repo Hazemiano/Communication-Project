@@ -6,7 +6,7 @@ fm=18;       %Massage Frequency
 T=10/fm;      %Total simulation time
 fs=1/ts;     % Sampling frequency
 N=ceil(T/ts); %Length of Vector 
-t=0:ts:(N-1)*ts;
+t=0:ts:((N-1)*ts);
 df=fs/N;      %Frequency step
 m=cos(2*pi*fm*t); %Massage Signal
 m(t>9|t<0)=0;
@@ -21,7 +21,7 @@ grid on;
 if(rem(N,2)==0)
 f = - (0.5*fs) : df : (0.5*fs-df) ; 
 else
-    f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ; 
+f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ; 
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Numerical fft
@@ -36,9 +36,9 @@ M_an = (9/2)*(sinc(9*(f-18)) + sinc(9*(f+18)));
 figure (2);
 plot(f,abs(M_nu),"Color","b","LineWidth",1);
 hold on ;
-plot(f,abs(M_an)/(max(M_an)),"Color","r","LineStyle","--","LineWidth",1);
+plot(f,abs(M_an),"Color","r","LineStyle","--","LineWidth",1);
 xlabel('Frequency (Hz)');
-ylabel=('M(F)');
+ylabel=('|M(F)|');
 title(' Analytical and Numerical Fourier Transform');
 legend('Numerical', 'Analytical');
 ylim([-0.1 , 1.1]);
@@ -65,7 +65,42 @@ end
 Band_Width = f(index);
 
 disp(Band_Width);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% SSB Modulation (S & s)
+fc = 50;
+Ac = 10;
+c = Ac * cos(2*pi*fc*t);
+s = m.* c;
+S = fftshift(fft(s))/N; %%%%% S is after DSB-SC then it goes to BPF to take wanted side
+%%%% 1st method by BPF %%%%%%%%%%%%%
+BPF = zeros(size(f));
+BPF(f>(fc-Band_Width) & f<(fc))=1;%% +ve frequency
+BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
+S_LSB1 = BPF.*S;
+
+%%%%2nd method by LBF %%%%%%%%%%%%%%%
+LBF = abs(f) <fc;
+S_LSB2 = LBF.* S;
+
+figure (3);
+plot(f,abs(S_LSB2),"Color","b");
+hold on ;
+
+xlabel('Frequency (Hz)');
+ylabel=('|S(F)|_LBS2');
+title('Modulated Message 2St Method');
+
+
+plot(f,abs(S_LSB1),"Color","r");
+hold on ;
+grid on;
+xlabel('Frequency (Hz)');
+ylabel=('|S(F)|_LBS1');
+title('Modulated Message 1St Method');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 
