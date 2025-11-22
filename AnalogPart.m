@@ -1,15 +1,17 @@
 clc;
 close all;
 clear;
-ts=1/600;  %Time step
+fc = 50;
+ts=0.1/fc;  %Time step
 fm=18;       %Massage Frequency
+
 T=10/fm;      %Total simulation time
 fs=1/ts;     % Sampling frequency
 N=ceil(T/ts); %Length of Vector 
-t=0:ts:((N-1)*ts);
+t=0:ts:(N-1)*ts;
 df=fs/N;      %Frequency step
 m=cos(2*pi*fm*t); %Massage Signal
-m(t>9|t<0)=0;
+m(t>=9|t<=0)=0;
 figure (1);
 plot(t,m);
 xlabel('Time (s)');
@@ -21,16 +23,17 @@ grid on;
 if(rem(N,2)==0)
 f = - (0.5*fs) : df : (0.5*fs-df) ; 
 else
-f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ; 
+    f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ; 
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Numerical fft
-M_nu=fftshift(fft(m))/N;
+M_nu=fftshift(fft(m))*ts;
 
 
-% Analytical expression %%%%% محتاجين نسال المعيد فيه %%%%
-M_an = (9/2)*(sinc(9*(f-18)) + sinc(9*(f+18)));
+% Analytical expression 
+M_an = 4.5*sinc(9*(f-18)).*exp(-i*pi*9*(f-18)) + 4.5*sinc(9*(f+18)).*exp(-i*pi*9*(f+18));
 
+%M_an = (9/2)*(sinc(9*(f-18)) + sinc(9*(f+18)));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %plot
 figure (2);
@@ -38,50 +41,57 @@ plot(f,abs(M_nu),"Color","b","LineWidth",1);
 hold on ;
 plot(f,abs(M_an),"Color","r","LineStyle","--","LineWidth",1);
 xlabel('Frequency (Hz)');
-ylabel=('|M(F)|');
+ylabel=('M(F)');
 title(' Analytical and Numerical Fourier Transform');
 legend('Numerical', 'Analytical');
-ylim([-0.1 , 1.1]);
+
 grid on;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%get Band_Width
-Max_Value = max(abs(M_nu));
-index = find(f == 0);
-b = 0;
+% Assume M_nu = spectrum magnitude, f = frequency axis
+[maxi, index] = max(M_nu);        
+threshold = 0.01 * maxi;         
 
-for C_index = index : length(f)
-
-
-    if (abs(M_nu(C_index)) == Max_Value)
-        b = 1;
-    end
-
-    if(M_nu(C_index) < (0.01 *  Max_Value) && b == 1)
-    index = C_index;
-    break
+stopindex_right = index;
+for i = index:length(f)
+    if M_nu(i) < threshold
+        stopindex_right = i;
+        break
     end
 end
 
+stopindex_left = index;
+for i = index:-1:1
+    if M_nu(i) < threshold
+        stopindex_left = i;
+        break
+    end
+end
 
-Band_Width = f(index);
+Band_Width = f(stopindex_right) - f(stopindex_left);
 
-disp(['Band Width = ' num2str(Band_Width)]);
+disp(['Estimated Bandwidth = ' num2str(Band_Width) ' Hz']);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% SSB Modulation (S & s)
-fc = 50;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
 Ac = 10;
 c = Ac * cos(2*pi*fc*t);
 s = m.* c;
-S = fftshift(fft(s))/N; %%%%% S is after DSB-SC then it goes to BPF to take wanted side
+S = fftshift(fft(s))*ts; %%%%% S is after DSB-SC then it goes to BPF to take wanted side
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1st method by BPF
 BPF = zeros(size(f));
 BPF(f>(fc-Band_Width) & f<(fc))=1;%% +ve frequency
 BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
-S_LSB1 = BPF.*S;
+S =  S.*BPF;
+S_LSB1=S;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 2nd method by LBF 
 LBF = abs(f) <fc; %%%%LBF
-S_LSB2 = LBF.* S;
+S= S.*LBF;
+S_LSB2 =S;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure (3);
@@ -93,53 +103,42 @@ ylabel=('|S(F)|_LBS2');
 title('Modulated Message 2St Method');
 
 
-plot(f,abs(S_LSB1),"Color","r");
+plot(f,abs(S_LSB1),"Color","r","LineWidth",0.6);
 hold on ;
 grid on;
 xlabel('Frequency (Hz)');
 ylabel=('|S(F)|_LBS1');
 title('Modulated Message 1St Method');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% S1_Band_Width (BW for S_LSB1)
-Max_Value = max(abs(S_LSB1));
-index = find(f == 0);
-b = 0;
+[maxi, index] = max(abs(S_LSB1));
+threshold = 0.01 * maxi;
 
-for C_index = index : length(f)
-
-
-    if (abs(S_LSB1(C_index)) == Max_Value)
-        b = 1;
-    end
-
-    if(S_LSB1(C_index) < (0.01 *  Max_Value) && b == 1)
-    index = C_index;
-    break
+stopindex_left = index;
+for i = index:-1:1
+    if abs(S_LSB1(i)) < threshold
+        stopindex_left = i;
+        break
     end
 end
 
+S1_Band_Width = f(index) - f(stopindex_left);
 
-S1_Band_Width = f(index);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  S2_Band_Width (BW for S_LSB2)
-Max_Value = max(abs(S_LSB2));
-index = find(f == 0);
-b = 0;
+[maxi, index] = max(abs(S_LSB2));
+threshold = 0.01 * maxi;
 
-for C_index = index : length(f)
-
-
-    if (abs(S_LSB2(C_index)) == Max_Value)
-        b = 1;
-    end
-
-    if(S_LSB2(C_index) < (0.01 *  Max_Value) && b == 1)
-    index = C_index;
-    break
+stopindex_left = index;
+for i = index:-1:1
+    if abs(S_LSB2(i)) < threshold
+        stopindex_left = i;
+        break
     end
 end
 
+S2_Band_Width = f(index) - f(stopindex_left);
 
-S2_Band_Width = f(index);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% print BW of 2 mehtods
 disp(['1st method BW_SSB = ' num2str(S1_Band_Width)]);
 disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
