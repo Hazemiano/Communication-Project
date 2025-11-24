@@ -144,12 +144,12 @@ disp(['1st method BW_SSB = ' num2str(S1_Band_Width)]);
 disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% End point 5A 
-r=ifft(fftshift(S_LSB1))*N;
+r=ifft(fftshift(S_LSB1))/ts;
 v=r .* c;
-V=fftshift(fft(v))/N;
+V=fftshift(fft(v))*ts;
 H=abs(f)<18;
 
-mo=real(ifft(fftshift(H.* V))*N);
+mo=real(ifft(fftshift(H.* V))/ts);
 figure(4)
 plot(t,mo);
 hold on;
