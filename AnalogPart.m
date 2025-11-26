@@ -4,7 +4,7 @@ close all;
 clear;
 fc = 50;
 Ac = 10;
-ts=0.1/fc;  %Time step
+ts=0.01/fc;  %Time step
 fm=18;       %Message Frequency
 T=10/fm;      %Total simulation time
 fs=1/ts;     % Sampling frequency
@@ -73,9 +73,12 @@ for i = index:-1:1
     end
 end
 
+u1 = f(stopindex_right);
+u2 = f(stopindex_left);
 Band_Width = f(stopindex_right) - f(stopindex_left);
 
 disp(['Estimated Bandwidth = ' num2str(Band_Width) ' Hz']);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Point 5
 c = Ac * cos(2*pi*fc*t);
@@ -87,7 +90,7 @@ c = Ac * cos(2*pi*fc*t);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1st method by BPF
 s =m.*c;
 
-S=fftshift(fft(s))*ts; % Modulated Signal in freq domain
+S = fftshift(fft(s))*ts; %%%%% S is after DSB-SC then it goes to BPF to take wanted side
 figure(4)
 plot(f,abs(S));
 hold on ;
@@ -96,11 +99,12 @@ ylabel ('S(F)');
 title('Modulated Signal 5A' )
 grid on;
 axis tight;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Using LBF
-LBF = abs(f) <fc; %%%%LBF
-S= S.*LBF;
-S_LSB1 =S;
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Using BPF
+BPF = zeros(size(f));
+BPF(f>(fc-Band_Width) & f<(fc))=1;%% +ve frequency
+BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
+S =  S.*BPF;
+S_LSB1=S;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 2nd method by Hilbert transform of m(t)
 m_hilbert = imag(hilbert(m));
 
@@ -128,7 +132,6 @@ legend('1st Method LSB', '2nd Method LSB');
 
 
 
-
 [maxi, index] = max(abs(S_LSB1));
 threshold = 0.01 * maxi;
 
@@ -139,8 +142,8 @@ for i = index:-1:1
         break
     end
 end
-y1 = f(index);
-y2 = f(stopindex_left);
+y3 = f(index);
+y4 = f(stopindex_left);
 S1_Band_Width = f(index) - f(stopindex_left);
 
 
@@ -168,8 +171,8 @@ disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% demodulated signal Using Coherent Detector
 
 
-s_LSB1 = ifft(fftshift(S_LSB1))/ts; % LSB in time domain
-v = s_LSB1.*c;
+s_LSB2 = ifft(fftshift(S_LSB2))/ts; % LSB in time domain
+v = s_LSB2.*c;
 
 V=fftshift(fft(v))*ts; % Demodulated Signal before LBF
 
