@@ -1,17 +1,19 @@
 clc;
+%pkg load signal
 close all;
 clear;
 fc = 50;
-Ac = 1;
-ts=0.01/fc;  %Time step
+Ac = 10;
+ts=0.1/fc;  %Time step
 fm=18;       %Message Frequency
 T=10/fm;      %Total simulation time
 fs=1/ts;     % Sampling frequency
-N=ceil(T/ts); %Length of Vector 
+N=ceil(T/ts); %Length of Vector
 t=0:ts:(N-1)*ts;
 df=fs/N;      %Frequency step
 m=cos(2*pi*fm*t); %Message Signal
-m(t>9|t<0)=0;
+m(t>=9|t<=0)=0;
+
 figure (1);
 plot(t,m);
 xlabel('Time (s)');
@@ -19,18 +21,21 @@ ylabel('m(t)');
 title('Signal m(t) = cos(2*pi*18*t)');
 axis tight;
 grid on;
+%%%%%%%%%%%%%%%%
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if(rem(N,2)==0)
-f = - (0.5*fs) : df : (0.5*fs-df) ; 
+f = - (0.5*fs) : df : (0.5*fs-df) ;
 else
-    f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ; 
+    f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Numerical fft
-M_nu=fftshift(fft(m))/N;
+M_nu=fftshift(fft(m))*ts;
 
 
-% Analytical expression 
+% Analytical expression
 M_an = 4.5*sinc(9*(f-18)).*exp(-i*pi*9*(f-18)) + 4.5*sinc(9*(f+18)).*exp(-i*pi*9*(f+18));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -47,24 +52,30 @@ axis tight;
 grid on;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% get Band_Width
-Max_Value = max(abs(M_nu));
-Therhold_Value = 0.01 * Max_Value;
-Above_Therhold = abs (M_nu) >= abs(Therhold_Value);
 
-%figure (88)
-%plot (f,Above_Therhold)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[maxi, index] = max(M_nu);
+threshold = 0.01 * maxi;
 
-Freq_Index = find(Above_Therhold);
-
-if ~isempty(Freq_Index)
-    % These define the bandwidth higher edge
-    f_max = f(Freq_Index(end));
-       
+stopindex_right = index;
+for i = index:length(f)
+    if M_nu(i) < threshold
+        stopindex_right = i;
+        break
+    end
 end
-    
-Band_Width = f_max;
 
-disp(['Band Width = ' num2str(Band_Width)]);
+stopindex_left = index;
+for i = index:-1:1
+    if M_nu(i) < threshold
+        stopindex_left = i;
+        break
+    end
+end
+
+Band_Width = f(stopindex_right) - f(stopindex_left);
+
+disp(['Estimated Bandwidth = ' num2str(Band_Width) ' Hz']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Point 5
 c = Ac * cos(2*pi*fc*t);
@@ -74,10 +85,10 @@ c = Ac * cos(2*pi*fc*t);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1st method by BPF
-s=m.*c;
+s =m.*c;
 
-S=fftshift(fft(s))/N; % Modulated Signal in freq domain
-figure(4) 
+S=fftshift(fft(s))*ts; % Modulated Signal in freq domain
+figure(4)
 plot(f,abs(S));
 hold on ;
 xlabel('Frequency (Hz)')
@@ -85,11 +96,11 @@ ylabel ('S(F)');
 title('Modulated Signal 5A' )
 grid on;
 axis tight;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Using LBF
+LBF = abs(f) <fc; %%%%LBF
+S= S.*LBF;
+S_LSB1 =S;
 
-BPF = zeros(size(f));
-BPF(f>(fc-Band_Width) & f<=(fc))=1;    % +ve frequency
-BPF(f<-(fc-Band_Width) & f>= -(fc))=1; % -ve frequency
-S_LSB1 = BPF.*S;  % 1st LSB Signal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 2nd method by Hilbert transform of m(t)
 m_hilbert = imag(hilbert(m));
 
@@ -97,7 +108,7 @@ m_hilbert = imag(hilbert(m));
 s_LSB2 = 0.5 * m .*  cos(2*pi*fc*t) + 0.5 *m_hilbert.* sin(2*pi*fc*t);
 
 % LSB in freq doman (method 2)
-S_LSB2 = fftshift(fft(s_LSB2)/N); %2nd LSB Signal in freq domain 
+S_LSB2 = fftshift(fft(s_LSB2)*ts); %2nd LSB Signal in freq domain
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Plot of S_LSB1 & S_LSB2
 figure (5);
@@ -116,56 +127,59 @@ legend('1st Method LSB', '2nd Method LSB');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% S1_Band_Width (BW for S_LSB1)
 
 
-Max_Value = max(abs(S_LSB1));
-Therhold_Value = 0.01 * Max_Value;
-Above_Therhold = abs (M_nu) > abs(Therhold_Value);
-Freq_Index = find(Above_Therhold);
 
-if ~isempty(Freq_Index)
-    % These define the bandwidth edges
-    f_min = f(Freq_Index(1));
-    f_max = f(Freq_Index(end));
-       
+
+[maxi, index] = max(abs(S_LSB1));
+threshold = 0.01 * maxi;
+
+stopindex_left = index;
+for i = index:-1:1
+    if abs(S_LSB1(i)) < threshold
+        stopindex_left = i;
+        break
+    end
 end
-    
+y1 = f(index);
+y2 = f(stopindex_left);
+S1_Band_Width = f(index) - f(stopindex_left);
 
-S1_Band_Width = f_max - f_min;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  S2_Band_Width (BW for S_LSB2)
-Max_Value = max(abs(S_LSB2));
-Therhold_Value = 0.01 * Max_Value;
-Above_Therhold = abs (M_nu) >= abs(Therhold_Value);
-Freq_Index = find(Above_Therhold);
+[maxi, index] = max(S_LSB2);
+threshold = 0.01 * maxi;
 
-if ~isempty(Freq_Index)
-    % These define the bandwidth edges
-    f_min = f(Freq_Index(1));
-    f_max = f(Freq_Index(end));
-       
+stopindex_left = index;
+for i = index:-1:1
+    if abs(S_LSB2(i)) < threshold
+        stopindex_left = i;
+        break
+    end
 end
-    
-S2_Band_Width = f_max - f_min;
+
+S2_Band_Width = f(index) - f(stopindex_left);
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% print BW of 2 mehtods
 disp(['1st method BW_SSB = ' num2str(S1_Band_Width)]);
 disp(['2nd method BW_SSB = ' num2str(S2_Band_Width)]);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% End point 5A 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% End point 5A
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% demodulated signal Using Coherent Detector
 
 
-s_LSB2 = ifft(fftshift(S_LSB2))*N; % LSB in time domain 
-v = s_LSB2.*c;
+s_LSB1 = ifft(fftshift(S_LSB1))/ts; % LSB in time domain
+v = s_LSB1.*c;
 
-V=fftshift(fft(v))/N; % Demodulated Signal before LBF
+V=fftshift(fft(v))*ts; % Demodulated Signal before LBF
 
-H=abs(f)<22; %LBF 
+H=abs(f)<22; %LBF
 
-mo=real(ifft(fftshift(H.* V))*N); % Demodilated Signal
+mo=real(ifft(fftshift(H.* V))/ts); % Demodilated Signal
 
-figure(7) 
+figure(7)
 plot(t,mo);
-hold on 
+hold on
 plot(t,m, "Color","r");
 
 title('Signal & Demodulated SIgnal in Time Domain')
