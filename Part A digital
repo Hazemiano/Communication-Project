@@ -1,0 +1,99 @@
+%%%% Unipolar NRZ line code %%%
+
+% Parameters
+Nb = 64;               % Number of bits
+Tb = 1;                % Bit duration
+fs = 100;              % Sampling frequency
+ts = 1/fs;             % Sampling time
+N = 6400;              % Number of samples
+df = 1/(N*ts);         % Frequency resolution
+
+% Generate a random binary sequence
+b = rand(1, Nb) > 0.5;
+
+% Time vector
+t = 0:ts:Nb*Tb-ts;
+
+% Unipolar NRZ signal generation
+UPNRZ = [];
+for i = 1:Nb
+    if b(i) == 1
+        UPNRZ = [UPNRZ ones(1, fs)];
+    else
+        UPNRZ = [UPNRZ zeros(1, fs)];
+    end
+end
+
+% Plot Time Domain
+figure(1)
+plot(t, UPNRZ, 'LineWidth', 1.5);  % plot the signal with time
+axis([0 Nb*Tb -0.5 1.5]);          % Set axis limits to show pulse levels clearly
+xlabel('t(sec)');
+ylabel('UPNRZ(t)');
+grid on;
+
+
+% Frequency Domain using fft
+f =  -0.5*fs : df : 0.5*fs-df ;
+UPNRZ_f = fftshift(fft(UPNRZ))*ts; % non-periodic signal
+figure(2)
+plot(f,abs(UPNRZ_f));
+xlabel('f(Hz)');
+ylabel('abs(UPNRZ)');
+grid on;
+
+
+
+
+
+%%%% Manchester Code %%%
+
+%% Parameters
+Nb = 64;          % Number of bits
+Tb = 1;           % Bit duration
+fs = 100;         % Sampling frequency
+ts = 1/fs;        % Sampling period
+N = 6400;         % Number of samples
+df = 1/(N*ts);    % Frequency resolution
+
+%% Generate a random binary sequence
+
+b = rand(1, Nb) > 0.5;
+
+%% Time vector for plotting
+t = linspace(0, Nb*Tb, Nb*fs);           % Nb*fs is the number of samples
+
+
+%% Manchester signal generation
+Manchester = [];
+for i = 1:Nb
+   if b(i) == 1
+       Manchester = [Manchester ones(1, fs/2) -ones(1, fs/2)];  %It starts 1 and ends -1 with half of the width of the pulse for each one
+   else
+       Manchester = [Manchester -ones(1, fs/2) ones(1, fs/2)];  %It starts -1 and ends 1 with half of the width of the pulse for each one
+    end
+end
+
+
+
+%%Plotting Time Domain
+figure(3);
+plot(t, Manchester, 'LineWidth', 1.5);
+title('Time Domain');
+xlabel('t(s)','FontSize', 20);
+ylabel('Amplitude','FontSize', 14);
+axis([0 Nb*Tb -1.5 1.5]);             % Set axis limits to show pulse levels clearly
+grid on;
+
+
+% Frequency Domain using fft
+f =  -0.5*fs : df : 0.5*fs-df ;
+Manchester_f = fftshift(fft(Manchester))*ts; % non-periodic signal
+
+figure(4)
+plot(f,abs(Manchester_f));
+title('Frequency Domain');
+xlabel('f(Hz)','FontSize', 17);
+ylabel('abs(Manchester)','FontSize', 20);
+grid on;
+
