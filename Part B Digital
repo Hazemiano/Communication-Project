@@ -1,0 +1,391 @@
+%%% Part B – Digital Modulation %%%
+%%%%%%% ASK %%%%%%%
+N = 64;              % Number of bits
+Tb = 1;              % Bit period
+Rb = 1/Tb;           % Bit rate
+fc = 5*Rb;           % Carrier frequency
+fs = 100;            % Sampling frequency
+ts = 1/fs ;          % Sampling Time
+df = 1/(fs*N*ts)     % Frequency resolution
+
+% Generate a random binary sequence
+b = rand(1,N) > 0.5 ;
+
+% Time Vector
+t = linspace(0, N*Tb , N*fs) ;
+
+% ASK Binary Data generation (Baseband signal)
+ASK = [];
+for i = 1:N
+  if b(i) == 1
+    ASK = [ASK ones(1,fs)] ;
+  else
+    ASK = [ASK zeros(1,fs)] ;
+  end
+end
+
+% ASK Transmitter
+c = cos(2*pi*fc*t);       % Carrier Signal
+ASK_Tx = ASK.*c ;
+
+% Time-Domain Plot (Transmitted Signal)
+figure;
+plot(t,ASK_Tx);
+axis ([0 N*Tb -1.5 1.5]) ; % Set axis limits to show pulse levels clearly
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('ASK Transmitted Signal (Time Domain)');
+grid on;
+
+% Spectrum of Transmitted Signal
+f = -0.5*fs : df : 0.5*fs-df ;
+ASK_Tx_f = fftshift(fft(ASK_Tx))*ts;
+figure(2)
+plot(f,abs(ASK_Tx_f)) ;
+xlabel('f(Hz)') ;
+ylabel('abs(ASK_Tx_f)') ;
+title('ASK Transmitted Signal (Frequency Domain)');
+grid on ;
+
+% Coherent ASK Receiver with Phase Error
+
+C_Rx1 = cos(2*pi*fc*t + (pi/6));
+C_Rx2 = cos(2*pi*fc*t + (pi/3));
+C_Rx3 = cos(2*pi*fc*t + (pi/2));
+
+ASK_Rx1 = ASK_Tx.*C_Rx1;
+ASK_Rx2 = ASK_Tx.*C_Rx2;
+ASK_Rx3 = ASK_Tx.*C_Rx3;
+
+%%% Low-pass filter (integrator) %%%
+
+% Time Domain of Received Signal
+
+ASK_Rx1_filtered= filter(ones(1, fs*Tb)/(fs*Tb), 1, ASK_Rx1);
+ASK_Rx2_filtered= filter(ones(1, fs*Tb)/(fs*Tb), 1, ASK_Rx2);
+ASK_Rx3_filtered= filter(ones(1, fs*Tb)/(fs*Tb), 1, ASK_Rx3);
+
+% Spectrum of Received Signal
+
+ASK_Rx1_f = fftshift(fft(ASK_Rx1_filtered)) * ts;
+ASK_Rx2_f = fftshift(fft(ASK_Rx2_filtered)) * ts;
+ASK_Rx3_f = fftshift(fft(ASK_Rx3_filtered)) * ts;
+
+figure;     % Plotting The output Receiver in Time domain
+
+% First subplot for phase = 30°
+subplot(3,1,1);
+plot(t, ASK_Rx1_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 30°');
+grid on;
+
+% Second subplot for phase = 60°
+subplot(3,1,2);
+plot(t, ASK_Rx2_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 60°');
+grid on;
+
+% Third subplot for phase = 90°
+subplot(3,1,3);
+plot(t, ASK_Rx3_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 90°');
+grid on;
+
+figure;             % Plotting The output Receiver in frequency domain
+
+% Phase = 30°
+subplot(3,1,1);
+plot(f, abs(ASK_Rx1_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx1_f)');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+% Phase = 60°
+subplot(3,1,2);
+plot(f, abs(ASK_Rx2_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx2_f)');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+% Phase = 90°
+subplot(3,1,3);
+plot(f, abs(ASK_Rx3_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx3_f)');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
+
+
+
+
+
+%%%%%%% PSK %%%%%%%
+
+%% Parameters
+N = 64;              % Number of bits
+Tb = 1;              % Bit period
+Rb = 1/Tb;           % Bit rate
+fc = 5*Rb;           % Carrier frequency (> Rb)
+fs = 100;            % Sampling frequency
+ts = 1/fs;           % Sampling interval
+df = 1/(N*Tb);       % Frequency resolution
+
+%% Time vector
+t = 0:ts:N*Tb-ts;     % total points = N*fs
+
+%% Generate random binary sequence
+b = rand(1,N) > 0.5;
+
+%% Baseband PSK signal generation
+PSK = [];
+for i = 1:N
+    if b(i) == 1
+        PSK = [PSK ones(1, fs)];    % bit 1 = 1
+    else
+        PSK = [PSK -ones(1, fs)];   % bit 0 = -1
+    end
+end
+
+
+%% PSK Transmitter
+c = cos(2*pi*fc*t);
+PSK_Tx = PSK.*c;
+
+%% Time-domain plot (Transmitted)
+figure;
+plot(t, PSK_Tx);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('PSK Transmitted Signal (Time Domain)');
+grid on;
+
+%% Frequency-domain plot (Transmitted)
+f = -fs/2 : df : fs/2 - df;
+PSK_Tx_f = fftshift(fft(PSK_Tx)) * ts;
+figure;
+plot(f, abs(PSK_Tx_f));
+xlabel('f(Hz)');
+ylabel('PSK Tx Spectrum');
+title('PSK Transmitted Signal (Frequency Domain)');
+grid on;
+
+%% Coherent PSK Receiver with Phase Errors %%
+
+C_Rx1 = cos(2*pi*fc*t + (pi/6));   % 30°
+C_Rx2 = cos(2*pi*fc*t + (pi/3));   % 60°
+C_Rx3 = cos(2*pi*fc*t + (pi/2));   % 90°
+
+PSK_Rx1 = PSK_Tx .* C_Rx1;
+PSK_Rx2 = PSK_Tx .* C_Rx2;
+PSK_Rx3 = PSK_Tx .* C_Rx3;
+
+%% Integrate each bit period (low-pass filter)
+PSK_Rx1_integrated = zeros(1,N);
+PSK_Rx2_integrated = zeros(1,N);
+PSK_Rx3_integrated = zeros(1,N);
+
+for i = 1:N
+    idx = (i-1)*fs + 1 : i*fs;
+    PSK_Rx1_integrated(i) = trapz(t(idx), PSK_Rx1(idx)) / Tb;
+    PSK_Rx2_integrated(i) = trapz(t(idx), PSK_Rx2(idx)) / Tb;
+    PSK_Rx3_integrated(i) = trapz(t(idx), PSK_Rx3(idx)) / Tb;
+end
+
+%% Make continuous-time output for plotting
+PSK_Rx1_filtered = [];
+PSK_Rx2_filtered = [];
+PSK_Rx3_filtered = [];
+for i = 1:N
+    PSK_Rx1_filtered = [PSK_Rx1_filtered repmat(PSK_Rx1_integrated(i), 1, fs)];
+    PSK_Rx2_filtered = [PSK_Rx2_filtered repmat(PSK_Rx2_integrated(i), 1, fs)];
+    PSK_Rx3_filtered = [PSK_Rx3_filtered repmat(PSK_Rx3_integrated(i), 1, fs)];
+end
+
+%% Time-domain Receiver plots
+figure;
+subplot(3,1,1);
+plot(t, PSK_Rx1_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)'); ylabel('Amplitude');
+title('PSK Receiver Output - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(t, PSK_Rx2_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)'); ylabel('Amplitude');
+title('PSK Receiver Output - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(t, PSK_Rx3_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)'); ylabel('Amplitude');
+title('PSK Receiver Output - Phase = 90°');
+grid on;
+
+%% Frequency-domain Receiver plots
+PSK_Rx1_f = fftshift(fft(PSK_Rx1_filtered)) * ts;
+PSK_Rx2_f = fftshift(fft(PSK_Rx2_filtered)) * ts;
+PSK_Rx3_f = fftshift(fft(PSK_Rx3_filtered)) * ts;
+
+figure;
+subplot(3,1,1);
+plot(f, abs(PSK_Rx1_f));
+xlabel('f (Hz)'); ylabel('|PSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(f, abs(PSK_Rx2_f));
+xlabel('f (Hz)'); ylabel('|PSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(f, abs(PSK_Rx3_f));
+xlabel('f (Hz)'); ylabel('|PSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
+
+
+
+
+%%%%% FSK %%%%
+
+%% Parameters
+N  = 64;              % Number of bits
+Tb = 1;               % Bit period
+Rb = 1/Tb;            % Bit rate
+fs = 100;             % Sampling frequency
+ts = 1/fs ;           % Sampling interval
+df = 1/(N*Tb);        % Frequency resolution
+
+f1 = 5*Rb;            % Frequency for bit '1'
+f0 = 2*Rb;            % Frequency for bit '0'
+
+%% Time vector
+t = 0:ts:N*Tb-ts;     % total points = N*fs
+
+%% Generate random binary sequence
+b = rand(1,N) > 0.5;  % unipolar 0/1
+
+%% Baseband FSK signal (for plotting)
+FSK = [];
+for i = 1:N
+    if b(i) == 1
+        FSK = [FSK ones(1,fs)];
+    else
+        FSK = [FSK zeros(1,fs)];
+    end
+end
+
+%% FSK Transmitter
+FSK_Tx = [];
+for i = 1:N
+    ti = (i-1)*Tb:ts:i*Tb-ts;
+    if b(i) == 1
+        FSK_Tx = [FSK_Tx cos(2*pi*f1*ti)];
+    else
+        FSK_Tx = [FSK_Tx cos(2*pi*f0*ti)];
+    end
+end
+
+%% Time-Domain Plot (Transmitted Signal)
+figure;
+plot(t, FSK_Tx);
+grid on;
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('FSK Transmitted Signal (Time Domain)');
+
+%% Frequency-Domain Plot (Transmitted Signal)
+f = -fs/2:df:fs/2-df;
+FSK_Tx_f = fftshift(fft(FSK_Tx)) * ts;
+figure;
+plot(f, abs(FSK_Tx_f));
+grid on;
+xlabel('f(Hz)');
+ylabel('|FSK Tx Spectrum|');
+title('FSK Transmitted Signal (Frequency Domain)');
+
+%% Coherent FSK Receiver with Phase Errors
+C_Rx1 = cos(2*pi*f1*t + pi/6);
+C_Rx2 = cos(2*pi*f1*t + pi/3);
+C_Rx3 = cos(2*pi*f1*t + pi/2);
+
+% Multiply by local oscillator and integrate (low-pass filter)
+FSK_Rx1 = FSK_Tx .* C_Rx1 - FSK_Tx .* cos(2*pi*f0*t + pi/6);
+FSK_Rx2 = FSK_Tx .* C_Rx2 - FSK_Tx .* cos(2*pi*f0*t + pi/3);
+FSK_Rx3 = FSK_Tx .* C_Rx3 - FSK_Tx .* cos(2*pi*f0*t + pi/2);
+
+% Low-pass filter (Integrator over one bit period)
+FSK_Rx1_filtered = filter(ones(1, fs*Tb)/(fs*Tb), 1, FSK_Rx1);
+FSK_Rx2_filtered = filter(ones(1, fs*Tb)/(fs*Tb), 1, FSK_Rx2);
+FSK_Rx3_filtered = filter(ones(1, fs*Tb)/(fs*Tb), 1, FSK_Rx3);
+
+%% Time-Domain Receiver Plots
+figure;
+subplot(3,1,1);
+plot(t, FSK_Rx1_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(t, FSK_Rx2_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(t, FSK_Rx3_filtered);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 90°');
+grid on;
+
+%% Frequency-Domain Receiver Plots
+FSK_Rx1_f = fftshift(fft(FSK_Rx1_filtered)) * ts;
+FSK_Rx2_f = fftshift(fft(FSK_Rx2_filtered)) * ts;
+FSK_Rx3_f = fftshift(fft(FSK_Rx3_filtered)) * ts;
+
+figure;
+subplot(3,1,1);
+plot(f, abs(FSK_Rx1_f));
+xlabel('f (Hz)');
+ylabel('|FSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(f, abs(FSK_Rx2_f));
+xlabel('f (Hz)');
+ylabel('|FSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(f, abs(FSK_Rx3_f));
+xlabel('f (Hz)');
+ylabel('|FSK Rx Spectrum|');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
