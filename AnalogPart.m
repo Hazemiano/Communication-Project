@@ -2,6 +2,14 @@ clc;
 %pkg load signal
 close all;
 clear;
+function[bandwidth] =calc_BW(M,f_vector)
+M_magnitude = abs(M);
+[maxi, index] = max(M_magnitude);
+threshold = 0.01 * maxi;
+indices_above = find(M_magnitude >= threshold);
+last_index = indices_above(end);
+bandwidth = f_vector(last_index); 
+end
 fc = 50;
 Ac = 1;
 fm=18;  
@@ -49,9 +57,7 @@ axis tight;
 grid on;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %objective: calcukate bandwidth given a 1% criteria 
-[maxi, index] = max(M_nu);
-threshold = 0.01 * maxi;
-threshold_crossing = M_nu - threshold;
+Band_Width=calc_BW(M_nu,f)
 % The rest of this code should clculate the bandwidth 1% criteria 
  %graphically BW=21.6hz , hint: check zerocrossings function 
  c = Ac * cos(2*pi*fc*t); 
@@ -66,21 +72,19 @@ title('Modulated Signal ' )
 grid on;
 axis tight;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Using BPF : 1st method 
-Band_Width=21.6;
 BPF = zeros(size(f));
 BPF(f>(fc-Band_Width) & f<(fc))=1; %% +ve frequency
 BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
-S =  S.*BPF;
-S_LSB1=S; 
-%%%%%%%%%%%$$$$$$$$ 2nd method
+S_LSB1 =  S.*BPF;
+Band_Width_LSB1= calc_BW(S_LSB1,f)
+%%%%%%%%%%%$$$$$$$$ 2nd method : Ignore Lpf , use hilbert filter 
 LPF = abs(f) <fc; %%%%LPF
 S_LSB2 = LPF.* S;
-S= S.*LPF;
-S_LSB2 =S;
+Band_Width_LSB2= calc_BW(S_LSB2,f)
 
 figure (5);
-plot(f,abs(S_LSB1),"Color","r");
-hold on ;
+plot(f,abs(S_LSB1),'Color',"r");
+hold on
 plot(f,abs(S_LSB2),"Color","b" , "LineWidth",0.6);
 xlabel('Frequency (Hz)');
 ylabel ('|S(F)| LBS');
@@ -108,111 +112,76 @@ ylabel('m(t)');
 legend('Demodulated signal' , 'Orignal Message')
 axis tight;
 grid on;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%6-PARTA%%%%%%%%%
-%%1/fc<<Taw<<1/fm%% --> 0.02<<Taw<<0.055 :)
+%Amplitude Modulation Large Carrier
+ka=0.4; % initial 
 c =cos(2*pi*fc*t);
 s =(1 + ka*m).*c;                
-g  =abs(hilbert(s));          
-S  =fftshift(fft(s))*ts;   
+g  =abs(hilbert(s)); %envelope detector output (demodulated signal)        
+S_LC  =fftshift(fft(s))*ts;   
 am =(1 + ka*m);
-
-
-
-figure(6)
-plot(t, g, 'LineWidth', 0.7); 
-hold on;
-plot(t, am, 'LineWidth', 0.7);
-grid on;
-xlabel('time(second)')
-title('the output of the envelope detector and am signal')
-legend('g(t)', '(1 + ka*m(t))')
-
-figure(7)
-plot(t, g, 'LineWidth', 0.7); 
-hold on;
-plot(t, m, 'LineWidth', 0.7);
-grid on;
-xlabel('time(second)')
-title('the output of the envelope detector and the original message')
-legend('g(t)', 'm(t)')
-
+%Large Carrier Spectrum
+%%%% 6th Point (a)
 figure(8)
-plot(f, abs(S), 'LineWidth', 0.7); 
+plot(f, abs(S_LC), 'LineWidth', 0.7); 
 hold on;
 plot(f, abs(M_nu), 'LineWidth', 0.7);
 grid on;
 xlabel('frequency(hz)')
 title('the spectrum of the numerical and the modulated signal')
 legend('|S(f)|', '|M(f)|')
-
-
-
-
-
-
-s_dc_removed = S - mean(S);
-[maxi, index] = max(abs(s_dc_removed));        
-threshold = 0.01 * maxi;         
-
-stopindex_right = index;
-for i = index:length(f)
-    if abs(s_dc_removed(i)) < threshold
-        stopindex_right = i;
-        break
-    end
-end
-
-stopindex_left = index;
-for i = index:-1:1
-    if abs(s_dc_removed(i)) < threshold
-        stopindex_left = i;
-        break
-    end
-end
-
-Band_Width = f(stopindex_right) - f(stopindex_left);
-
-disp(['Estimated Bandwidth = ' num2str(Band_Width) ' Hz']);
-
-%%%%%%%%%%%%%%%% for ka=1.5 %%%%%%%%%%%%%%
-ka = 1.5;
-
-c = cos(2*pi*fc*t);
-s = (1 + ka*m) .* c;
-
-g  = abs(hilbert(s));
-S  = fftshift(fft(s)) * ts;
-
-am = (1 + ka*m);
-
+Band_Width_SLC= calc_BW(S_LC,f)
+%%%% 6th Point (b)
 figure(9)
-plot(t, g, 'LineWidth', 0.7);
+plot(t, g, 'LineWidth', 0.7); 
 hold on;
-plot(t, am, 'LineWidth', 0.7);
+plot(t, s, 'LineWidth', 0.7);
 grid on;
 xlabel('time(second)')
 title('the output of the envelope detector and am signal')
-legend('g(t)', '(1 + ka*m(t))')
-
+legend('g(t)', '(1 + ka*m(t)*c)')
+%%% 6th Point(c)
 figure(10)
-plot(t, g, 'LineWidth', 0.7);
+plot(t, g, 'LineWidth', 0.7); 
 hold on;
 plot(t, m, 'LineWidth', 0.7);
 grid on;
 xlabel('time(second)')
 title('the output of the envelope detector and the original message')
 legend('g(t)', 'm(t)')
-
+%%%% Figure 10 Spectrum 
+G=fftshift(fft(g))*ts;
 figure(11)
-plot(f, abs(S), 'LineWidth', 0.7);
+plot(f, abs(G), 'LineWidth', 0.7); 
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('Frequency (hz)')
+title('the output of the envelope detector and the original message Spectrum')
+legend('G(f)', 'M(f)')
+%%%%%%%%%%%5 6th Point (d)%%%%%%%%%%%%%%%%%%%%
+ka=1.5; % overmodulated signal 
+c =cos(2*pi*fc*t);
+s =(1 + ka*m).*c;                
+g  =abs(hilbert(s)); %envelope detector output (demodulated signal)        
+S_LC  =fftshift(fft(s))*ts;   
+am =(1 + ka*m);
+%Large Carrier Spectrum
+%6th Point (a) Revisited
+figure(12)
+plot(f, abs(S_LC), 'LineWidth', 0.7); 
 hold on;
 plot(f, abs(M_nu), 'LineWidth', 0.7);
 grid on;
 xlabel('frequency(hz)')
 title('the spectrum of the numerical and the modulated signal')
 legend('|S(f)|', '|M(f)|')
-
-
-
-
+Band_Width_SLC2= calc_BW(S_LC,f)
+%%%% 6th Point (b) revisited
+figure(13)
+plot(t, g, 'LineWidth', 0.7); 
+hold on;
+plot(t, s, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('the output of the envelope detector and am signal')
+legend('g(t)', '(1 + ka*m(t)*c)')
