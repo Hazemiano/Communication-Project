@@ -109,5 +109,110 @@ legend('Demodulated signal' , 'Orignal Message')
 axis tight;
 grid on;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%6-PARTA%%%%%%%%%
+%%1/fc<<Taw<<1/fm%% --> 0.02<<Taw<<0.055 :)
+c =cos(2*pi*fc*t);
+s =(1 + ka*m).*c;                
+g  =abs(hilbert(s));          
+S  =fftshift(fft(s))*ts;   
+am =(1 + ka*m);
+
+
+
+figure(6)
+plot(t, g, 'LineWidth', 0.7); 
+hold on;
+plot(t, am, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('the output of the envelope detector and am signal')
+legend('g(t)', '(1 + ka*m(t))')
+
+figure(7)
+plot(t, g, 'LineWidth', 0.7); 
+hold on;
+plot(t, m, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('the output of the envelope detector and the original message')
+legend('g(t)', 'm(t)')
+
+figure(8)
+plot(f, abs(S), 'LineWidth', 0.7); 
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('frequency(hz)')
+title('the spectrum of the numerical and the modulated signal')
+legend('|S(f)|', '|M(f)|')
+
+
+
+
+
+
+s_dc_removed = S - mean(S);
+[maxi, index] = max(abs(s_dc_removed));        
+threshold = 0.01 * maxi;         
+
+stopindex_right = index;
+for i = index:length(f)
+    if abs(s_dc_removed(i)) < threshold
+        stopindex_right = i;
+        break
+    end
+end
+
+stopindex_left = index;
+for i = index:-1:1
+    if abs(s_dc_removed(i)) < threshold
+        stopindex_left = i;
+        break
+    end
+end
+
+Band_Width = f(stopindex_right) - f(stopindex_left);
+
+disp(['Estimated Bandwidth = ' num2str(Band_Width) ' Hz']);
+
+%%%%%%%%%%%%%%%% for ka=1.5 %%%%%%%%%%%%%%
+ka = 1.5;
+
+c = cos(2*pi*fc*t);
+s = (1 + ka*m) .* c;
+
+g  = abs(hilbert(s));
+S  = fftshift(fft(s)) * ts;
+
+am = (1 + ka*m);
+
+figure(9)
+plot(t, g, 'LineWidth', 0.7);
+hold on;
+plot(t, am, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('the output of the envelope detector and am signal')
+legend('g(t)', '(1 + ka*m(t))')
+
+figure(10)
+plot(t, g, 'LineWidth', 0.7);
+hold on;
+plot(t, m, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('the output of the envelope detector and the original message')
+legend('g(t)', 'm(t)')
+
+figure(11)
+plot(f, abs(S), 'LineWidth', 0.7);
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('frequency(hz)')
+title('the spectrum of the numerical and the modulated signal')
+legend('|S(f)|', '|M(f)|')
+
+
 
 
