@@ -77,9 +77,18 @@ BPF(f>(fc-Band_Width) & f<(fc))=1; %% +ve frequency
 BPF(f<-(fc-Band_Width) & f>-(fc))=1;%% -ve frequency
 S_LSB1 =  S.*BPF;
 Band_Width_LSB1= calc_BW(S_LSB1,f)
+
 %%%%%%%%%%%$$$$$$$$ 2nd method : Ignore Lpf , use hilbert filter 
-LPF = abs(f) <fc; %%%%LPF
-S_LSB2 = LPF.* S;
+ %%%%LPF
+m2=cos(2*pi*fm*t); %Message Signal
+m2(t>=9|t<=0)=0;
+mhilbert=imag(hilbert(m2)); 
+c1=cos(2*pi*fc*t);
+c2=sin(2*pi*fc*t);
+ ss =m2.*c1;
+s_LSB2=ss+(mhilbert.*c2);
+S_LSB2=fftshift(fft(s_LSB2))*ts;
+
 Band_Width_LSB2= calc_BW(S_LSB2,f)
 
 figure (5);
