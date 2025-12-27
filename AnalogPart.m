@@ -165,12 +165,35 @@ axis tight;
 grid on; 
 xlim([0 0.5])
 
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%1/fc<<Taw<<1/fm%% --> 0.02<<Taw<<0.055 :
 %Amplitude Modulation Large Carrier
 ka=0.4; % initial 
 c =cos(2*pi*fc*t);
 s_am =(1 + ka*m).*c; %Large Carrier Modulation                   
 S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
-Tau=0.045;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Tau_mini = 1/(2*fc);
+Tau_maxi = 1/(2*fm);
+tau_vals = linspace(Tau_mini,Tau_maxi,1000);
+for  I= 1:length(tau_vals)
+    Tau = tau_vals(I);
+    g =env(s_am,0,t,Tau); 
+    g_final=(g-mean(g))./ka;
+    ERR(I)= mean((m -g_final).^2);
+end
+[MohNader,indddddex]= min(ERR);
+Tau=tau_vals(indddddex)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 g = env(s_am,0,t,Tau); %Demodulated signal using envelope detector
 g_final= (g-mean(g))./ka;
 %Large Carrier Spectrum
@@ -222,7 +245,22 @@ c =cos(2*pi*fc*t);
 s =(1 + ka*m).*c;
 s_am =(1 + ka*m).*c; %Large Carrier Modulation                   
 S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
-Tau=0.045;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Tau_mini = 1/(2*fc);
+Tau_maxi = 1/(2*fm);
+tau_vals = linspace(Tau_mini,Tau_maxi,1000);
+for  I= 1:length(tau_vals)
+    Tau = tau_vals(I);
+    g =env(s_am,0,t,Tau); 
+    g_final=(g-mean(g))./ka;
+    ERR(I)= mean((m -g_final).^2);
+end
+[MohNader,indddddex]= min(ERR);
+Tau=tau_vals(indddddex)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 g = env(s_am,0,t,Tau);  %Envelope Output
 g_final= (g-mean(g))./ka;   %Demodulated signal using envelope detector
 
