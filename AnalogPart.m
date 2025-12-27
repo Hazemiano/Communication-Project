@@ -181,12 +181,12 @@ c =cos(2*pi*fc*t);
 s_am =(1 + ka*m).*c; %Large Carrier Modulation                   
 S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Tau_mini = 1/(2*fc);
-Tau_maxi = 1/(2*fm);
+Tau_mini = 1/(fc);
+Tau_maxi = 1/(fm);
 tau_vals = linspace(Tau_mini,Tau_maxi,1000);
 for  I= 1:length(tau_vals)
     Tau = tau_vals(I);
-    g =env(s_am,0,t,Tau); 
+    g =env(s_am,0.5,t,Tau); 
     g_final=(g-mean(g))./ka;
     ERR(I)= mean((m -g_final).^2);
 end
@@ -247,12 +247,12 @@ s_am =(1 + ka*m).*c; %Large Carrier Modulation
 S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Tau_mini = 1/(2*fc);
-Tau_maxi = 1/(2*fm);
+Tau_mini = 1/(fc);
+Tau_maxi = 1/(fm);
 tau_vals = linspace(Tau_mini,Tau_maxi,1000);
 for  I= 1:length(tau_vals)
     Tau = tau_vals(I);
-    g =env(s_am,0,t,Tau); 
+    g =env(s_am,0.5,t,Tau); 
     g_final=(g-mean(g))./ka;
     ERR(I)= mean((m -g_final).^2);
 end
@@ -261,7 +261,7 @@ Tau=tau_vals(indddddex)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-g = env(s_am,0,t,Tau);  %Envelope Output
+g = env(s_am,0.5,t,Tau);  %Envelope Output
 g_final= (g-mean(g))./ka;   %Demodulated signal using envelope detector
 
 %Large Carrier Spectrum
