@@ -51,10 +51,10 @@ end
 fc = 50;
 Ac = 1;
 fm=18;  
-ts=0.1/fc;  %Time step
+ts=0.2/fc;  %Time step
 T=10;      %Margin After Discontinuity at t=9;
 fs=1/ts;     % Sampling frequency
-N=ceil(T/ts); %Length of Vector
+N=ceil(T/ts);%Length of Vector
 t=0:ts:(N-1)*ts;
 df=fs/N;      %Frequency step
 m=cos(2*pi*fm*t); %Message Signal
@@ -247,4 +247,3 @@ xlabel('time(second)')
 title('Envelope Detector Output & Original Message')
 xlim([0 0.5])
 legend('g(t)', '(1 + ka*m(t)*c)')
-
