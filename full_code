@@ -1,0 +1,928 @@
+clc;
+close all;
+clear;
+%%%%%%%%% PART A: Analog Communications %%%%%%%%%%%%%%%%%%%%
+
+%%%%% Define functions for Claculating bandwidth & Envelope Detection%%%%% 
+function[bandwidth] =calc_BW_baseband(M,f_vector) % 1% Criteria
+M_magnitude = abs(M);
+[maxi, ~] = max(M_magnitude);
+threshold = 0.01 * maxi;
+indices_above = find(M_magnitude >= threshold);
+last_index = indices_above(end);
+bandwidth = f_vector(last_index); 
+end
+function [BW] = calc_BW_passband(M, f_vector, fc)
+
+M_mag = abs(M);
+
+% Positive frequencies only
+pos_idx = f_vector >= 0;
+f_pos   = f_vector(pos_idx);
+M_pos   = M_mag(pos_idx);
+
+band_idx = (f_pos > 0) & (f_pos < fc);
+f_band = f_pos(band_idx);
+M_band = M_pos(band_idx);
+
+% Peak inside sideband
+peak_val = max(M_band);
+threshold = 0.01 * peak_val;
+
+idx = find(M_band >= threshold);
+
+f_edge = f_band(idx(1));  
+BW = fc - f_edge;
+end
+
+function [signaldemod] = env(signal, Vondiode, t, tau) % Envelope Detection
+    N = length(signal);
+    dt = t(2) - t(1); 
+     v_cap = 0; % Initial voltage on the capacitor
+       for i = 1:N
+        if (signal(i) - Vondiode > v_cap)
+            v_cap = signal(i) - Vondiode; 
+        else
+            v_cap = v_cap * exp(-dt/tau);
+        end
+         signaldemod(i) = v_cap;
+      end
+end
+%-------------------%
+%%%% Defining Parameters %%%%%%
+fc = 50;
+Ac = 1;
+fm=18;  
+ts=0.2/fc;  %Time step
+T=10;      %Margin After Discontinuity at t=9;
+fs=1/ts;     % Sampling frequency
+N=ceil(T/ts);%Length of Vector
+t=0:ts:(N-1)*ts;
+df=fs/N;      %Frequency step
+m=cos(2*pi*fm*t); %Message Signal
+m(t>=9|t<=0)=0;
+%--------------------% Plot Message in time
+figure (1);
+plot(t,m);
+xlabel('Time (s)');
+ylabel('m(t)');
+title('Signal m(t) = cos(2*pi*18*t)');
+axis tight;
+grid on;
+xlim([0 0.5])
+%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Define Frequency vector
+if(rem(N,2)==0)
+f = - (0.5*fs) : df : (0.5*fs-df) ;
+else
+f = - (0.5*fs-0.5*df) : df : (0.5*fs-0.5*df) ;
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Numerical fft
+M_nu=fftshift(fft(m))*ts;
+
+% Analytical expression
+M_an = 4.5*sinc(9*(f-18)).*exp(-1i*pi*9*(f-18)) + 4.5*sinc(9*(f+18)).*exp(-1i*pi*9*(f+18));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%plot Message Spectrum
+figure (2);
+plot(f,abs(M_nu),"Color","b","LineWidth",1);
+hold on 
+plot(f,abs(M_an),"Color","r","LineWidth",1);
+xlabel('Frequency (Hz)');
+ylabel ('M(F)');
+title(' Analytical and Numerical Fourier Transform');
+axis tight;
+grid on;
+legend ("Numerical Fourier ", "Analytic FT")
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%objective: calcukate bandwidth given a 1% criteria 
+Band_Width=calc_BW_baseband(M_nu,f) 
+%-------------------------------%
+% Define Paramaters to Start Modulation 
+c = Ac * cos(2*pi*fc*t); %carrier 
+s =m.*c; % modulated signal 
+S = fftshift(fft(s))*ts; % Spectrum of Modulated Signal
+
+% Plot Modulated Signal Spectrum
+figure(3)
+plot(f,abs(S));
+hold on ;
+xlabel('Frequency (Hz)')
+ylabel ('S(F)');
+title('Modulated Signal ' )
+grid on;
+axis tight;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Using BPF : 1st method For SSB LSB
+BPF = zeros(size(f));
+BPF(f>(fc-30) & f<(fc))=1; %% +ve frequency
+BPF(f<-(fc-30) & f>-(fc))=1;%% -ve frequency
+S_LSB1 =  S.*BPF;
+Band_Width_LSB1= calc_BW_passband(S_LSB1,f,fc)
+
+%%%%%%%%%%%$$$$$$$$ 2nd method : hilbert filter 
+m2=cos(2*pi*fm*t); % Message Signal
+m2(t>=9|t<=0)=0;
+mhilbert=imag(hilbert(m2)); 
+c1=cos(2*pi*fc*t);
+c2=sin(2*pi*fc*t);
+ss =m2.*c1;
+s_LSB2=ss+(mhilbert.*c2);
+S_LSB2=fftshift(fft(s_LSB2))*ts;
+Band_Width_LSB2= calc_BW_passband(S_LSB2,f,fc)
+
+%----------------------------------%
+%Plot Both LSB Methods
+figure (4);
+plot(f,abs(S_LSB1),'Color',"r");
+hold on
+plot(f,abs(S_LSB2),"Color","b" , "LineWidth",0.6);
+xlabel('Frequency (Hz)');
+ylabel ('|S(F)| LBS');
+title('Modulated Message LSB 1st & 2nd Method');
+axis tight;
+grid on;
+legend('1st Method: BPF', '2nd Method: Hilbert');
+
+%----- Coherent Detector-----%%%%%%
+s_LSB1 = ifft(fftshift(S_LSB1))/ts; % LSB in time domain
+v = s_LSB1.*c;
+V=fftshift(fft(v))*ts; % Demodulated Signal before LPF
+H=abs(f)<fc; %LPF
+low_pass = H.* V;
+mo=real(ifft(fftshift(low_pass))/ts); % Demodulated Signal
+figure(5)
+plot(t,mo,"Color","b");
+hold on
+plot(t,m, "Color","r");
+title('Signal & Demodulated SIgnal in Time Domain')
+xlabel('Time');
+ylabel('m(t)');
+legend('Demodulated signal' , 'Orignal Message')
+axis tight;
+grid on; 
+xlim([0 0.5])
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%1/fc<<Taw<<1/fm%% --> 0.02<<Taw<<0.055 :
+%Amplitude Modulation Large Carrier
+ka=0.4; % initial 
+c =cos(2*pi*fc*t);
+s_am =(1 + ka*m).*c; %Large Carrier Modulation                   
+S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Tau_mini = 1/(fc);
+Tau_maxi = 1/(fm);
+tau_vals = linspace(Tau_mini,Tau_maxi,1000);
+for  I= 1:length(tau_vals)
+    Tau = tau_vals(I);
+    g =env(s_am,0.5,t,Tau); 
+    g_final=(g-mean(g))./ka;
+    ERR(I)= mean((m -g_final).^2);
+end
+[MohNader,indddddex]= min(ERR);
+Tau=tau_vals(indddddex)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+g = env(s_am,0,t,Tau); %Demodulated signal using envelope detector
+g_final= (g-mean(g))./ka;
+%Large Carrier Spectrum
+%%%% 6th Point (a)
+figure(6)
+plot(f, abs(S_LC), 'LineWidth', 0.7); 
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('frequency(hz)')
+title('Large Carrier Modulation & Original Message : Spectrum')
+legend('|S(f)|', '|M(f)|')
+Band_Width_SLC= (calc_BW_passband(S_LC, f, fc)).*2
+
+%%%% 6th Point (b)
+figure(7)
+plot(t, s_am, 'LineWidth', 0.7); 
+hold on 
+plot(t, g, 'LineWidth', 0.7);
+xlabel('time(second)')
+title('Envelope Detector Output & Original Message')
+xlim([0 0.5])
+legend('g(t)', '(1 + ka*m(t)*c)')
+%%%% 6th Point (c)
+figure(8)
+plot(t, g_final, 'LineWidth', 0.7); 
+hold on 
+plot(t, m, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('Demodulated Signal & Orignal Message')
+legend ("Demodulated Signal","Original Message")
+xlim([0 0.5])
+
+%%%% Figure 9 Spectrum 
+G=fftshift(fft(g_final))*ts;
+figure(9)
+plot(f, abs(G), 'LineWidth', 0.7); 
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('Frequency (hz)')
+title('Demodulated Signal & Original Message: Spectrum')
+legend('G(f)', 'M(f)')
+
+%%%%%%%%%%%5 6th Point (d)%%%%%%%%%%%%%%%%%%%%
+ka=1.5; % overmodulated signal 
+c =cos(2*pi*fc*t);
+s =(1 + ka*m).*c;
+s_am =(1 + ka*m).*c; %Large Carrier Modulation                   
+S_LC  =fftshift(fft(s_am))*ts;  % Spectrum
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Tau_mini = 1/(fc);
+Tau_maxi = 1/(fm);
+tau_vals = linspace(Tau_mini,Tau_maxi,1000);
+for  I= 1:length(tau_vals)
+    Tau = tau_vals(I);
+    g =env(s_am,0.5,t,Tau); 
+    g_final=(g-mean(g))./ka;
+    ERR(I)= mean((m -g_final).^2);
+end
+[MohNader,indddddex]= min(ERR);
+Tau=tau_vals(indddddex)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+g = env(s_am,0.5,t,Tau);  %Envelope Output
+g_final= (g-mean(g))./ka;   %Demodulated signal using envelope detector
+
+%Large Carrier Spectrum
+%6th Point (a) Revisited
+figure(10)
+plot(f, abs(S_LC), 'LineWidth', 0.7); 
+hold on;
+plot(f, abs(M_nu), 'LineWidth', 0.7);
+grid on;
+xlabel('frequency(hz)')
+title('Large Carrier Modulation & Original Message : Spectrum')
+legend('|S(f)|', '|M(f)|')
+Band_Width_SLC2= (calc_BW_passband(S_LC, f, fc)).*2
+%%%% 6th Point (b) revisited
+figure(11)
+plot(t, s_am, 'LineWidth', 0.7); 
+hold on;
+plot(t, g, 'LineWidth', 0.7);
+grid on;
+xlabel('time(second)')
+title('Envelope Detector Output & Original Message')
+xlim([0 0.5])
+legend('g(t)', '(1 + ka*m(t)*c)')
+clc
+%%Analog Communication Part B (FM)%%
+n_max=[];
+beta=0:0.2:40;
+for j=beta
+
+for i=1:40
+  if(abs(besselj(40-i,j))>=0.01)
+  break;
+  end;
+end;
+n_max(end+1)=40-i;
+
+end
+figure(12)
+plot(beta,2.*n_max./beta)   % (normalized BW)= BW/delta_f = 2*n_max/beta
+
+
+%%%%%%%%% Part A: Digital Communications %%%%%%%%%%%%%%%%%%
+%%%% Unipolar NRZ line code %%%
+
+% Parameters
+Nb = 64;               % Number of bits
+Tb = 1;                % Bit duration
+fs = 100;              % Sampling frequency
+ts = 1/fs;             % Sampling time
+N = 6400;              % Number of samples
+df = 1/(N*ts);         % Frequency resolution
+
+% Generate a random binary sequence
+b = rand(1, Nb) > 0.5;
+
+% Time vector
+t = 0:ts:Nb*Tb-ts;
+
+% Unipolar NRZ signal generation
+UPNRZ = [];
+for i = 1:Nb
+    if b(i) == 1
+        UPNRZ = [UPNRZ ones(1, fs)];
+    else
+        UPNRZ = [UPNRZ zeros(1, fs)];
+    end
+end
+
+% Plot Time Domain
+figure(13)
+plot(t, UPNRZ, 'LineWidth', 1.5);  % plot the signal with time
+axis([0 Nb*Tb -0.5 1.5]);          % Set axis limits to show pulse levels clearly
+xlabel('t(sec)');
+ylabel('UPNRZ(t)');
+grid on;
+
+
+% Frequency Domain using fft
+f =  -0.5*fs : df : 0.5*fs-df ;
+UPNRZ_f = fftshift(fft(UPNRZ))*ts; % non-periodic signal
+figure(14)
+plot(f,abs(UPNRZ_f));
+xlabel('f(Hz)');
+ylabel('abs(UPNRZ)');
+grid on;
+
+%%%%%%%%%%% Part B : Digital Communication %%%%%%%%%%%%%%
+%%%%%%% ASK %%%%%%%
+N = 64;              % Number of bits
+Tb = 1;              % Bit period
+Rb = 1/Tb;           % Bit rate
+fc = 5*Rb;           % Carrier frequency
+fs = 100;            % Sampling frequency
+ts = 1/fs ;          % Sampling Time
+df = 1/(fs*N*ts)     % Frequency resolution
+
+% Generate a random binary sequence
+b = rand(1,N) > 0.5 ;
+
+% Time Vector
+t = 0:ts:N*Tb-ts;     % total points = N*fs
+
+% ASK Binary Data generation (Baseband signal)
+ASK = [];
+for i = 1:N
+  if b(i) == 1
+    ASK = [ASK ones(1,fs)] ;
+  else
+    ASK = [ASK zeros(1,fs)] ;
+  end
+end
+
+% ASK Transmitter
+c = cos(2*pi*fc*t);       % Carrier Signal
+ASK_Tx = ASK.*c ;
+
+% Time-Domain Plot (Transmitted Signal)
+figure(15);
+plot(t,ASK_Tx);
+axis ([0 N*Tb -1.5 1.5]) ; % Set axis limits to show pulse levels clearly
+xlabel('t(s)');
+ylabel('ASK_Tx');
+title('ASK Transmitted Signal (Time Domain)');
+grid on;
+
+% Spectrum of Transmitted Signal
+f = -0.5*fs : df : 0.5*fs-df ;
+ASK_Tx_f = fftshift(fft(ASK_Tx))*ts;
+figure(16)
+plot(f,abs(ASK_Tx_f)) ;
+xlabel('f(Hz)') ;
+ylabel('abs(ASK_Tx_f)') ;
+title('ASK Transmitted Signal (Frequency Domain)');
+grid on ;
+
+% Coherent ASK Receiver with Phase Error
+C_Rx1 = cos(2*pi*fc*t + (pi/6));
+C_Rx2 = cos(2*pi*fc*t + (pi/3));
+C_Rx3 = cos(2*pi*fc*t + (pi/2));
+
+ASK_Rx1 = ASK_Tx.*C_Rx1;
+ASK_Rx2 = ASK_Tx.*C_Rx2;
+ASK_Rx3 = ASK_Tx.*C_Rx3;
+
+% Spectrum of Received Signal before the low-pass filter
+ASK_Rx1_f = fftshift(fft(ASK_Rx1)) * ts;
+ASK_Rx2_f = fftshift(fft(ASK_Rx2)) * ts;
+ASK_Rx3_f = fftshift(fft(ASK_Rx3)) * ts;
+
+%%% Low-pass filter %%%
+H = abs(f) < 5
+
+% The output of the low pass filter (frequency domain)
+ASK_Rx1_filtered_f = H.*ASK_Rx1_f  ;
+ASK_Rx2_filtered_f = H.*ASK_Rx2_f  ;
+ASK_Rx3_filtered_f = H.*ASK_Rx3_f  ;
+
+% The output of the low pass filter (Time domain)
+ASK_Rx1_filtered_t = ifft(ifftshift(ASK_Rx1_filtered_f )) / ts;
+ASK_Rx2_filtered_t = ifft(ifftshift(ASK_Rx2_filtered_f )) / ts;
+ASK_Rx3_filtered_t = ifft(ifftshift(ASK_Rx3_filtered_f )) / ts;
+
+
+% Plotting The output of low-pass filter in Time domain
+figure;
+% First subplot for phase = 30°
+subplot(3,1,1);
+plot(t, ASK_Rx1_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 30°');
+grid on;
+
+% Second subplot for phase = 60°
+subplot(3,1,2);
+plot(t, ASK_Rx2_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 60°');
+grid on;
+
+% Third subplot for phase = 90°
+subplot(3,1,3);
+plot(t, ASK_Rx3_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 90°');
+grid on;
+
+% Plotting The output of low-pass filter in frequency domain
+figure;
+% Phase = 30°
+subplot(3,1,1);
+plot(f, abs(ASK_Rx1_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx1_filtered_f)');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+% Phase = 60°
+subplot(3,1,2);
+plot(f, abs(ASK_Rx2_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx2_filtered_f)');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+% Phase = 90°
+subplot(3,1,3);
+plot(f, abs(ASK_Rx3_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(ASK_Rx3_filtered_f)');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
+
+%%% Decision Making device %%%
+
+decision_30 = zeros(1,N);
+decision_60 = zeros(1,N);
+decision_90 = zeros(1,N);
+
+th = 0.2;   % correct threshold to retrieve the data
+
+for i = 1:N
+    idx = (i-1)*fs + 1 : i*fs;
+    % The average value of the low-pass filter output
+    z1 = mean(ASK_Rx1_filtered_t(idx));
+    z2 = mean(ASK_Rx2_filtered_t(idx));
+    z3 = mean(ASK_Rx3_filtered_t(idx));
+    decision_30(i) = z1 > th;
+    decision_60(i) = z2 > th;
+    decision_90(i) = z3 > th;
+end
+
+%%% Subplot of Original ASK signal and Decision Making output %%%
+
+figure;
+% Original ASK signal (baseband)
+subplot(2,1,1);
+plot(t, ASK, 'LineWidth', 1.5);
+axis([0 N*Tb -0.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Original ASK Signal (Baseband)');
+grid on;
+
+% Decision output (bit decisions)
+subplot(2,1,2);
+stem(decision_30,'r','filled');
+hold on;
+stem(decision_60,'b','filled');
+stem(decision_90,'k','filled');
+xlabel('Bit index');
+ylabel('Decision');
+axis([0 N*Tb -0.5 1.5]);
+title('Decision Making Output');
+legend('30°','60°','90°');
+grid on;
+
+
+
+
+
+%%%%%%% PSK %%%%%%%
+
+%% Parameters
+N = 64;              % Number of bits
+Tb = 1;              % Bit period
+Rb = 1/Tb;           % Bit rate
+fc = 5*Rb;           % Carrier frequency (> Rb)
+fs = 100;            % Sampling frequency
+ts = 1/fs;           % Sampling interval
+df = 1/(N*Tb);       % Frequency resolution
+
+%% Time vector
+t = 0:ts:N*Tb-ts;     % total points = N*fs
+
+%% Generate random binary sequence
+b = rand(1,N) > 0.5;
+
+%% Baseband PSK signal generation
+PSK = [];
+for i = 1:N
+    if b(i) == 1
+        PSK = [PSK ones(1, fs)];    % bit 1 = 1
+    else
+        PSK = [PSK -ones(1, fs)];   % bit 0 = -1
+    end
+end
+
+%% PSK Transmitter
+c = cos(2*pi*fc*t);
+PSK_Tx = PSK.*c;
+
+%% Time-domain plot (Transmitted)
+figure;
+plot(t, PSK_Tx);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('PSK Transmitted Signal (Time Domain)');
+grid on;
+
+%% Frequency-domain plot (Transmitted)
+f = -fs/2 : df : fs/2 - df;
+PSK_Tx_f = fftshift(fft(PSK_Tx)) * ts;
+figure;
+plot(f, abs(PSK_Tx_f));
+xlabel('f(Hz)');
+ylabel('PSK Tx Spectrum');
+title('PSK Transmitted Signal (Frequency Domain)');
+grid on;
+
+%% Coherent PSK Receiver with Phase Errors %%
+C_Rx1 = cos(2*pi*fc*t + (pi/6));
+C_Rx2 = cos(2*pi*fc*t + (pi/3));
+C_Rx3 = cos(2*pi*fc*t + (pi/2));
+
+PSK_Rx1 = PSK_Tx.*C_Rx1;
+PSK_Rx2 = PSK_Tx.*C_Rx2;
+PSK_Rx3 = PSK_Tx.*C_Rx3;
+
+% Spectrum of Received Signal before the low-pass filter
+PSK_Rx1_f = fftshift(fft(PSK_Rx1)) * ts;
+PSK_Rx2_f = fftshift(fft(PSK_Rx2)) * ts;
+PSK_Rx3_f = fftshift(fft(PSK_Rx3)) * ts;
+
+%%% Low-pass filter %%%
+H = abs(f) < 5
+
+% The output of the low pass filter (frequency domain)
+PSK_Rx1_filtered_f = H.*PSK_Rx1_f  ;
+PSK_Rx2_filtered_f = H.*PSK_Rx2_f  ;
+PSK_Rx3_filtered_f = H.*PSK_Rx3_f  ;
+
+% The output of the low pass filter (Time domain)
+PSK_Rx1_filtered_t = real(ifft(ifftshift(PSK_Rx1_filtered_f )) / ts);
+PSK_Rx2_filtered_t = real(ifft(ifftshift(PSK_Rx2_filtered_f )) / ts);
+PSK_Rx3_filtered_t = real(ifft(ifftshift(PSK_Rx3_filtered_f )) / ts);
+
+
+% Plotting The output of low-pass filter in Time domain
+figure;
+% First subplot for phase = 30°
+subplot(3,1,1);
+plot(t, PSK_Rx1_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 30°');
+grid on;
+
+% Second subplot for phase = 60°
+subplot(3,1,2);
+plot(t, PSK_Rx2_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 60°');
+grid on;
+
+% Third subplot for phase = 90°
+subplot(3,1,3);
+plot(t, PSK_Rx3_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Receiver Output - Phase = 90°');
+grid on;
+
+% Plotting The output of low-pass filter in frequency domain
+figure;
+% Phase = 30°
+subplot(3,1,1);
+plot(f, abs(PSK_Rx1_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(PSK_Rx1_filtered_f)');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+% Phase = 60°
+subplot(3,1,2);
+plot(f, abs(PSK_Rx2_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(PSK_Rx2_filtered_f)');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+% Phase = 90°
+subplot(3,1,3);
+plot(f, abs(PSK_Rx3_filtered_f));
+xlabel('f(Hz)');
+ylabel('abs(PSK_Rx3_filtered_f)');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
+
+%%% Decision Making device %%%
+
+decision_30 = zeros(1,N);
+decision_60 = zeros(1,N);
+decision_90 = zeros(1,N);
+
+th = 0;   % correct threshold to retrieve the data
+
+for i = 1:N
+    idx = (i-1)*fs + 1 : i*fs;
+    % The average value of the low-pass filter output
+    z1 = mean(PSK_Rx1_filtered_t(idx));
+    z2 = mean(PSK_Rx2_filtered_t(idx));
+    z3 = mean(PSK_Rx3_filtered_t(idx));
+
+    % Decision making
+    if z1 > th
+        decision_30(i) = 1;
+    else
+        decision_30(i) = -1;
+    end
+
+    if z2 > th
+        decision_60(i) = 1;
+    else
+        decision_60(i) = -1;
+    end
+
+    if z3 > th
+        decision_90(i) = 1;
+    else
+        decision_90(i) = -1;
+    end
+end
+
+
+%%% Subplot of Original PSK signal and Decision Making output %%%
+
+figure;
+% Original PSK signal (baseband)
+subplot(2,1,1);
+plot(t, PSK, 'LineWidth', 1.5);
+axis([0 N*Tb -0.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Original PSK Signal (Baseband)');
+grid on;
+
+% Decision output (bit decisions)
+subplot(2,1,2);
+stem(decision_30,'r','filled');
+hold on;
+stem(decision_60,'b','filled');
+stem(decision_90,'k','filled');
+xlabel('Bit index');
+ylabel('Decision');
+axis([0 N*Tb -0.5 1.5]);
+title('Decision Making Output');
+legend('30°','60°','90°');
+grid on;
+
+
+
+
+
+%%%%% FSK %%%%
+
+%Parameters
+N  = 64;              % Number of bits
+Tb = 1;               % Bit period
+Rb = 1/Tb;            % Bit rate
+fs = 100;             % Sampling frequency
+ts = 1/fs ;           % Sampling interval
+df = 1/(N*Tb);        % Frequency resolution
+
+f1 = 5*Rb;            % Frequency for bit '1'
+f0 = 2*Rb;            % Frequency for bit '0'
+
+%% Time vector
+t = 0:ts:N*Tb-ts;     % total points = N*fs
+
+%% Generate random binary sequence
+b = rand(1,N) > 0.5;  % unipolar 0/1
+
+%% Baseband FSK signal (for plotting)
+FSK = [];
+for i = 1:N
+    if b(i) == 1
+        FSK = [FSK ones(1,fs)];
+    else
+        FSK = [FSK zeros(1,fs)];
+    end
+end
+
+%% FSK Transmitter
+FSK_Tx = [];
+for i = 1:N
+    ti = (i-1)*Tb:ts:i*Tb-ts;
+    if b(i) == 1
+        FSK_Tx = [FSK_Tx cos(2*pi*f1*ti)];
+    else
+        FSK_Tx = [FSK_Tx cos(2*pi*f0*ti)];
+    end
+end
+
+%% Time-Domain Plot (Transmitted Signal)
+figure;
+plot(t, FSK_Tx);
+grid on;
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('FSK Transmitted Signal (Time Domain)');
+
+%% Frequency-Domain Plot (Transmitted Signal)
+f = -fs/2:df:fs/2-df;
+FSK_Tx_f = fftshift(fft(FSK_Tx)) * ts;
+figure;
+plot(f, abs(FSK_Tx_f));
+grid on;
+xlabel('f(Hz)');
+ylabel('FSK Tx Spectrum');
+title('FSK Transmitted Signal (Frequency Domain)');
+
+%% Coherent FSK Receiver with Phase Errors
+C_Rx1 = cos(2*pi*f1*t + pi/6);
+C_Rx2 = cos(2*pi*f1*t + pi/3);
+C_Rx3 = cos(2*pi*f1*t + pi/2);
+
+% Multiply by local oscillator
+FSK_Rx1 = FSK_Tx .* C_Rx1 - FSK_Tx .* cos(2*pi*f0*t + pi/6);
+FSK_Rx2 = FSK_Tx .* C_Rx2 - FSK_Tx .* cos(2*pi*f0*t + pi/3);
+FSK_Rx3 = FSK_Tx .* C_Rx3 - FSK_Tx .* cos(2*pi*f0*t + pi/2);
+
+% Spectrum of Received Signal before the low-pass filter
+FSK_Rx1_f = fftshift(fft(FSK_Rx1)) * ts;
+FSK_Rx2_f = fftshift(fft(FSK_Rx2)) * ts;
+FSK_Rx3_f = fftshift(fft(FSK_Rx3)) * ts;
+
+%%% Low-pass filter %%%
+H = abs(f) < 2 ;
+
+% The output of the low pass filter (frequency domain)
+FSK_Rx1_filtered_f = H.*FSK_Rx1_f  ;
+FSK_Rx2_filtered_f = H.*FSK_Rx2_f  ;
+FSK_Rx3_filtered_f = H.*FSK_Rx3_f  ;
+
+% The output of the low pass filter (Time domain)
+FSK_Rx1_filtered_t = real(ifft(ifftshift(FSK_Rx1_filtered_f )) / ts);
+FSK_Rx2_filtered_t = real(ifft(ifftshift(FSK_Rx2_filtered_f )) / ts);
+FSK_Rx3_filtered_t = real(ifft(ifftshift(FSK_Rx3_filtered_f )) / ts);
+
+
+% Plotting The output of low-pass filter in time domain
+figure;
+subplot(3,1,1);
+plot(t, FSK_Rx1_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(t, FSK_Rx2_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(t, FSK_Rx3_filtered_t);
+axis([0 N*Tb -1.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('FSK Receiver Output - Phase = 90°');
+grid on;
+
+
+% Plotting The output of low-pass filter in frequency domain
+
+figure;
+subplot(3,1,1);
+plot(f, abs(FSK_Rx1_filtered_f));
+xlabel('f(Hz)');
+ylabel('|FSK Rx1 Spectrum|');
+title('Receiver Spectrum - Phase = 30°');
+grid on;
+
+subplot(3,1,2);
+plot(f, abs(FSK_Rx2_filtered_f));
+xlabel('f(Hz)');
+ylabel('|FSK Rx2 Spectrum|');
+title('Receiver Spectrum - Phase = 60°');
+grid on;
+
+subplot(3,1,3);
+plot(f, abs(FSK_Rx3_filtered_f));
+xlabel('f(Hz)');
+ylabel('|FSK Rx3 Spectrum|');
+title('Receiver Spectrum - Phase = 90°');
+grid on;
+
+
+%%% Decision Making device %%%
+
+decision_30 = zeros(1,N);
+decision_60 = zeros(1,N);
+decision_90 = zeros(1,N);
+
+th = 0;
+for i = 1:N
+    idx = (i-1)*fs + 1 : i*fs;
+    % The average value of the low-pass filter output
+    z1 = mean(FSK_Rx1_filtered_t(idx));
+    z2 = mean(FSK_Rx2_filtered_t(idx));
+    z3 = mean(FSK_Rx3_filtered_t(idx));
+
+    % Decision making
+    if z1 > th
+        decision_30(i) = 1;
+    else
+        decision_30(i) = -1;
+    end
+
+    if z2 > th
+        decision_60(i) = 1;
+    else
+        decision_60(i) = -1;
+    end
+
+    if z3 > th
+        decision_90(i) = 1;
+    else
+        decision_90(i) = -1;
+    end
+end
+
+%%% Subplot of Original FSK signal and Decision Making output %%%
+
+figure;
+% Original FSK signal (baseband)
+subplot(2,1,1);
+plot(t, FSK, 'LineWidth', 1.5);
+axis([0 N*Tb -0.5 1.5]);
+xlabel('t(s)');
+ylabel('Amplitude');
+title('Original FSK Signal (Baseband)');
+grid on;
+
+% Decision output (bit decisions)
+subplot(2,1,2);
+stem(decision_30,'r','filled');
+hold on;
+stem(decision_60,'b','filled');
+stem(decision_90,'k','filled');
+xlabel('Bit index');
+ylabel('Decision');
+axis([0 N*Tb -0.5 1.5]);
+title('Decision Making Output');
+legend('30°','60°','90°');
+grid on;
